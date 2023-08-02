@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to deploy the cluster into
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet 1 to deploy the cluster into
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet 1 to deploy the cluster into
+
+  DBName:
+    Type: String
+    Description: The name of the database to create
+
+  DBUser:
+    Type: String
+    Description: The username to use for the database
+
+  DBPassword:
+    Type: String
+    Description: The password to use for the database
+ 
+Resources:
+  DBCluster:
+    Type: AWS::RDS::DBCluster
+    DependsOn:
+         - DBSubnetGroup
+    Properties:
+      Engine: aurora-mysql
+      EngineVersion: '5.7'
+      EngineMode: serverless
+      DBClusterIdentifier: !Ref AWS::StackName
+      DatabaseName: !Ref DBName
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      EnableHttpEndpoint: 'true'
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DBSecurityGroup
+      ScalingConfiguration:
+        AutoPause: 'true'
+        SecondsUntilAutoPause: 300
+        MaxCapacity: 2
+        MinCapacity: 1
+      Tags:
+        - Key: Name
+          Value: aurora-cluster
+
+  DBSubnetGroup:
+     Type: AWS::RDS::DBSubnetGroup
+     Properties:
+      DBSubnetGroupDescription: Subnets available for the Aurora database cluster
+      SubnetIds:
+        - !Ref PrivateSubnet
+        - !Ref PublicSubnet
+        
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Aurora cluster
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: 0.0.0.0/0
+
+ 
+Outputs:
+   DBEndpoint:
+    Description: The connection endpoint of your database.
+    Value: !GetAtt DBCluster.Endpoint.Address
