@@ -2,19 +2,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
 
 Parameters:
-  UserData:
-    Type: String
-    NoEcho: true
-    Default: |
-       #!/bin/bash
-       sudo su
-       yum update -y
-       sudo amazon-linux-extras install nginx1
-       sudo systemctl start nginx
-       yum install docker -y
-       systemctl start docker
-       docker pull wordpress:latest
-
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -106,7 +93,15 @@ Resources:
       - NetworkInterfaceId: !Ref 'Eth0'
         DeviceIndex: '0'
       UserData: 
-        Fn::Base64: !Ref UserData
+        Fn::Base64: |
+         #!/bin/bash
+         sudo su
+         yum update -y
+         sudo amazon-linux-extras install nginx1
+         sudo systemctl start nginx
+         yum install docker -y
+         systemctl start docker
+         docker pull wordpress:latest
 
   Eth0:
     Type: AWS::EC2::NetworkInterface
