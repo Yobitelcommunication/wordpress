@@ -1,6 +1,20 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
 
+Parameters:
+  UserData:
+    Type: String
+    NoEcho: true
+    Default: |
+       #!/bin/bash
+       sudo su
+       yum update -y
+       sudo amazon-linux-extras install nginx1
+       sudo systemctl start nginx
+       yum install docker -y
+       systemctl start docker
+       docker pull wordpress:latest
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -72,7 +86,15 @@ Resources:
          - EC2Instance
     Properties:
       Domain: vpc
-      InstanceId: !Ref EC2Instance
+      
+  EIPAddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn:
+         - EC2Instance
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      NetworkInterfaceId: !Ref Eth0
+      PrivateIpAddress: 172.56.11.25
 
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -80,18 +102,51 @@ Resources:
       ImageId: ami-059310caab7e9f4ef
       InstanceType: t4g.small
       KeyName: MarketPlace
-      SecurityGroupIds:
-        - !Ref InstanceSecurityGroup
-      SubnetId: !Ref PublicSubnet
+      NetworkInterfaces:
+      - NetworkInterfaceId: !Ref 'Eth0'
+        DeviceIndex: '0'
       UserData: 
-        Fn::Base64: |
-          #!/bin/bash
-          sudo su
-          yum update -y
-          sudo amazon-linux-extras install nginx1
-          sudo systemctl start nginx
-          yum install docker -y
-          systemctl start docker
-          docker pull wordpress:latest
+        Fn::Base64: !Ref UserData
 
+  Eth0:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: Primary network interface
+      GroupSet:
+        - !Ref InstanceSecurityGroup
+      PrivateIpAddresses:
+      - PrivateIpAddress: 172.56.11.25
+        Primary: 'true'
+      - PrivateIpAddress: 172.56.11.50
+        Primary: 'false'
+      - PrivateIpAddress: 172.56.11.65
+        Primary: 'false'
+      - PrivateIpAddress: 172.56.11.75
+        Primary: 'false'
+      SourceDestCheck: true
+      SubnetId: !Ref PublicSubnet
+      
+ 
+  Eth1:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: Secondary network interface
+      GroupSet:
+        - !Ref InstanceSecurityGroup
+      PrivateIpAddresses:
+      - PrivateIpAddress: 172.56.11.85
+        Primary: 'true'
+      - PrivateIpAddress: 172.56.11.90
+        Primary: 'false'
+      - PrivateIpAddress: 172.56.11.100
+        Primary: 'false'
+      SourceDestCheck: true
+      SubnetId: !Ref PublicSubnet
 
+  InterfaceAttachment:
+    Type: AWS::EC2::NetworkInterfaceAttachment
+    DependsOn: EC2Instance
+    Properties:
+      DeviceIndex: '1'
+      InstanceId: !Ref EC2Instance
+      NetworkInterfaceId: !Ref Eth1
