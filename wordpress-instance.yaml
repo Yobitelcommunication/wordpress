@@ -1,6 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
-
+Mappings:
+   RegionMap:
+    us-east-1:
+      AMI: ami-059310caab7e9f4ef
+    us-east-2:
+      AMI: ami-098dd3a86ea110896
+    us-west-1:
+      AMI: ami-0004cf65cdd4848f3
 Parameters:
   Name:
     Type: String
@@ -135,7 +142,7 @@ Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-0004cf65cdd4848f3
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
       InstanceType: t4g.small
       KeyName: OhioKey
       IamInstanceProfile: !Ref InstanceProfile
