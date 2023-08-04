@@ -1,6 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
 
+Parameters:
+  Name:
+    Type: String
+    Default: wordpress
+    Description: Name of the wordpress container
+
+  PrivateIp:
+    Type: String
+    Default: 172.56.11.50
+    Description: Private IP of the wordpress container
 
 Resources:
   VPC:
@@ -47,6 +57,45 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet
+  
+  InstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ['ec2.amazonaws.com']
+            Action: 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: SSMManagedInstancePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:UpdateInstanceInformation'
+                  - 'ssmmessages:CreateControlChannel'
+                  - 'ssmmessages:CreateDataChannel'
+                  - 'ssmmessages:OpenControlChannel'
+                  - 'ssmmessages:OpenDataChannel'
+                Resource: '*'
+        - PolicyName: EC2SSMSendCommandPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'ssm:SendCommand'
+                Resource: '*'  # Replace REGION, ACCOUNT_ID, and INSTANCE_ID with appropriate values for your EC2 instance.
+
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref InstanceRole
 
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -86,9 +135,10 @@ Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-059310caab7e9f4ef
+      ImageId: ami-0004cf65cdd4848f3
       InstanceType: t4g.small
-      KeyName: MarketPlace
+      KeyName: OhioKey
+      IamInstanceProfile: !Ref InstanceProfile
       NetworkInterfaces:
       - NetworkInterfaceId: !Ref 'Eth0'
         DeviceIndex: '0'
@@ -102,7 +152,9 @@ Resources:
          yum install docker -y
          systemctl start docker
          docker pull wordpress:latest
-
+         yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+         systemctl enable amazon-ssm-agent
+         systemctl start amazon-ssm-agent
   Eth0:
     Type: AWS::EC2::NetworkInterface
     Properties:
