@@ -26,6 +26,7 @@ $docker pull wordpress:latest
 
 $docker container run --name wp -d -p 172.31.28.197:8080:80 2b5691e73f15 (or) docker container run --name wp -d -p 172.31.28.197:8080:80 wordpress:latest
 
+$docker container run -e "WORDPRESS_DB_HOST=database.cluster-cccnrtgr5dne.us-east-2.rds.amazonaws.com" -e "WORDPRESS_DB_USER=user" -e "WORDPRESS_DB_PASSWORD=password" -e "WORDPRESS_DB_NAME=yobitel" -e "table_prefix=wp_user23" --name swpt -it -d -p 172.56.11.28:80:80 wordpress:latest
 
 #Configure Nginx file
 
