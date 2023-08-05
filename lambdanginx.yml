@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: LambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - 'arn:aws:iam::aws:policy/AdministratorAccess'
+
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: MyEC2DockerRunFunction
+      Runtime: 'python3.8'
+      Handler: index.add_server_block
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          def add_server_block(event, context):
+          # Extract the server name and proxy pass from the event or environment variables
+              server_name = event['server_name']
+              proxy_pass_url = event['proxy_pass_url']
+
+          # Create the new server block with the provided server name and proxy pass
+              new_server_block = f'''
+                  server {{
+                      listen 80;
+                      server_name {server_name};
+                      location / {{
+                          proxy_pass {proxy_pass_url};
+                          proxy_set_header Host $host;
+                          proxy_set_header X-Real-IP $remote_addr;
+                      }}
+                  }}
+              '''
+
+              client = boto3.client('ssm')
+              instance_id = 'i-0a3ebf62f318a6bd5'  # Replace with the EC2 instance ID you want to modify
+              nginx_conf_path = '/etc/nginx/nginx.conf'  # Path to the Nginx configuration file
+              line_number_to_insert = 55
+    
+
+              # Connect to the EC2 instance and add the new server block to the Nginx configuration file
+              response = client.send_command(
+                  InstanceIds=[instance_id],
+                  DocumentName='AWS-RunShellScript',
+                  Parameters={
+                      'commands': [
+                          f"sudo head -n {line_number_to_insert} {nginx_conf_path} | "
+                          f"sudo tee /etc/nginx/nginx_temp.conf > /dev/null",
+                          f"echo '{new_server_block}' | sudo tee -a /etc/nginx/nginx_temp.conf > /dev/null",
+                          f"sudo tail -n +{line_number_to_insert + 1} {nginx_conf_path} | "
+                          f"sudo tee -a /etc/nginx/nginx_temp.conf > /dev/null",
+                          f"sudo mv /etc/nginx/nginx_temp.conf {nginx_conf_path}",
+                          f"systemctl restart nginx"
+                      ]
+                  }
+              )
+              print(response)
