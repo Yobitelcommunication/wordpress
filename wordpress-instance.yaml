@@ -1,13 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
-Mappings:
-   RegionMap:
-    us-east-1:
-      AMI: ami-059310caab7e9f4ef
-    us-east-2:
-      AMI: ami-098dd3a86ea110896
-    us-west-1:
-      AMI: ami-0004cf65cdd4848f3
+
 Parameters:
   Name:
     Type: String
@@ -46,6 +39,15 @@ Resources:
       CidrBlock: 172.56.11.0/24
       MapPublicIpOnLaunch: true
 
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: 172.56.12.0/24
+
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -64,6 +66,12 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet
+
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
   
   InstanceRole:
     Type: 'AWS::IAM::Role'
@@ -95,7 +103,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: 'ssm:SendCommand'
-                Resource: '*'  # Replace REGION, ACCOUNT_ID, and INSTANCE_ID with appropriate values for your EC2 instance.
+                Resource: '*'  
+        - PolicyName: AdministratorAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
 
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -142,9 +157,9 @@ Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      ImageId: ami-059310caab7e9f4ef
       InstanceType: t4g.small
-      KeyName: OhioKey
+      KeyName: MarketPlace
       IamInstanceProfile: !Ref InstanceProfile
       NetworkInterfaces:
       - NetworkInterfaceId: !Ref 'Eth0'
@@ -154,14 +169,14 @@ Resources:
          #!/bin/bash
          sudo su
          yum update -y
-         sudo amazon-linux-extras install nginx1
+         sudo amazon-linux-extras install nginx1 -y
          sudo systemctl start nginx
-         yum install docker -y
-         systemctl start docker
-         docker pull wordpress:latest
-         yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-         systemctl enable amazon-ssm-agent
-         systemctl start amazon-ssm-agent
+         sudo yum install docker -y
+         sudo systemctl start docker
+         sudo docker pull wordpress:latest
+         sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+         sudo systemctl enable amazon-ssm-agent
+         sudo systemctl start amazon-ssm-agent
   Eth0:
     Type: AWS::EC2::NetworkInterface
     Properties:
