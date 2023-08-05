@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Resources:
-  LambdaExecutionRole:
+  LambdaExecutionRolewp:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: LambdaExecutionRole
+      RoleName: LambdaExecutionRolewp
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -19,10 +19,10 @@ Resources:
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: MyEC2DockerRunFunction
+      FunctionName: MyEC2DockerRunFunction1
       Runtime: 'python3.8'
       Handler: index.lambda_handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt LambdaExecutionRolewp.Arn
       Timeout: 60
       Code:
         ZipFile: |
@@ -30,7 +30,7 @@ Resources:
 
           def lambda_handler(event, context):
               # Replace INSTANCE_ID with the EC2 instance ID you want to execute the command on
-              instance_id = 'i-0d9062385a6c3d5ad'
+              instance_id = 'i-0a3ebf62f318a6bd5'
               command = 'sudo docker container run --name wp1 -d -p 172.56.11.65:8080:80 2b5691e73f15'
 
               client = boto3.client('ssm')
