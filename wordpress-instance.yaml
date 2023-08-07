@@ -2,21 +2,34 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'VPC with public and private subnets'
 
 Parameters:
-  Name:
+  VPCCidr:
     Type: String
-    Default: wordpress
-    Description: Name of the wordpress container
+    Default: 172.100.0.0/16
 
-  PrivateIp:
+  PublicSubnetCidr:
     Type: String
-    Default: 172.56.11.50
-    Description: Private IP of the wordpress container
+    Default: 172.100.11.0/24
+
+  PublicSubnetCidr1:
+    Type: String
+    Default: 172.100.12.0/24
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+
+Mappings:
+    RegionMap:
+      us-east-1: 
+        ami: ami-059310caab7e9f4ef
+      us-east-2:
+        ami: ami-0004cf65cdd4848f3
 
 Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 172.56.0.0/16
+      CidrBlock: !Ref VPCCidr
       EnableDnsSupport: true
       EnableDnsHostnames: true
       
@@ -36,7 +49,7 @@ Resources:
       AvailabilityZone: !Select 
         - 0
         - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: 172.56.11.0/24
+      CidrBlock: !Ref PublicSubnetCidr
       MapPublicIpOnLaunch: true
 
   PublicSubnet1:
@@ -46,7 +59,7 @@ Resources:
       AvailabilityZone: !Select 
         - 1
         - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: 172.56.12.0/24
+      CidrBlock: !Ref PublicSubnetCidr1
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -152,18 +165,19 @@ Resources:
     Properties:
       AllocationId: !GetAtt ElasticIP.AllocationId
       NetworkInterfaceId: !Ref Eth0
-      PrivateIpAddress: 172.56.11.25
 
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-059310caab7e9f4ef
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', ami]
       InstanceType: t4g.small
-      KeyName: MarketPlace
+      KeyName: !Ref KeyName
       IamInstanceProfile: !Ref InstanceProfile
       NetworkInterfaces:
       - NetworkInterfaceId: !Ref 'Eth0'
         DeviceIndex: '0'
+      - NetworkInterfaceId: !Ref 'Eth1'
+        DeviceIndex: '1'
       UserData: 
         Fn::Base64: |
          #!/bin/bash
@@ -177,45 +191,42 @@ Resources:
          sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
          sudo systemctl enable amazon-ssm-agent
          sudo systemctl start amazon-ssm-agent
+
   Eth0:
     Type: AWS::EC2::NetworkInterface
     Properties:
       Description: Primary network interface
       GroupSet:
         - !Ref InstanceSecurityGroup
-      PrivateIpAddresses:
-      - PrivateIpAddress: 172.56.11.25
-        Primary: 'true'
-      - PrivateIpAddress: 172.56.11.50
-        Primary: 'false'
-      - PrivateIpAddress: 172.56.11.65
-        Primary: 'false'
-      - PrivateIpAddress: 172.56.11.75
-        Primary: 'false'
-      SourceDestCheck: true
+      SecondaryPrivateIpAddressCount: 3
       SubnetId: !Ref PublicSubnet
       
- 
   Eth1:
     Type: AWS::EC2::NetworkInterface
     Properties:
       Description: Secondary network interface
       GroupSet:
         - !Ref InstanceSecurityGroup
-      PrivateIpAddresses:
-      - PrivateIpAddress: 172.56.11.85
-        Primary: 'true'
-      - PrivateIpAddress: 172.56.11.90
-        Primary: 'false'
-      - PrivateIpAddress: 172.56.11.100
-        Primary: 'false'
-      SourceDestCheck: true
+      SecondaryPrivateIpAddressCount: 3
       SubnetId: !Ref PublicSubnet
 
-  InterfaceAttachment:
-    Type: AWS::EC2::NetworkInterfaceAttachment
-    DependsOn: EC2Instance
-    Properties:
-      DeviceIndex: '1'
-      InstanceId: !Ref EC2Instance
-      NetworkInterfaceId: !Ref Eth1
+Outputs:
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref EC2Instance
+  
+  PublicSubnet:
+    Description: PublicSubnet of the newly created EC2 instance
+    Value: !Ref PublicSubnet
+
+  PublicSubnet1:
+    Description: PublicSubnet1 of the newly created EC2 instance
+    Value: !Ref PublicSubnet1
+
+  VPC:
+    Description: VPC of the newly created EC2 instance
+    Value: !Ref VPC
+
+  PrivateIPs:
+    Description: Private IP address of network interface 0
+    Value: !Join [",", [!Select [0, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth0.SecondaryPrivateIpAddresses], !GetAtt Eth1.PrimaryPrivateIpAddress, !Select [0, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth1.SecondaryPrivateIpAddresses]]]
