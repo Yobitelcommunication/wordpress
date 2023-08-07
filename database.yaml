@@ -9,22 +9,10 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
     Description: Public subnet 1 to deploy the cluster into
 
-  PrivateSubnet:
+  PublicSubnet1:
     Type: AWS::EC2::Subnet::Id
     Description: Private subnet 1 to deploy the cluster into
 
-  DBName:
-    Type: String
-    Description: The name of the database to create
-
-  DBUser:
-    Type: String
-    Description: The username to use for the database
-
-  DBPassword:
-    Type: String
-    Description: The password to use for the database
- 
 Resources:
   DBCluster:
     Type: AWS::RDS::DBCluster
@@ -35,9 +23,9 @@ Resources:
       EngineVersion: '5.7'
       EngineMode: serverless
       DBClusterIdentifier: !Ref AWS::StackName
-      DatabaseName: !Ref DBName
-      MasterUsername: !Ref DBUser
-      MasterUserPassword: !Ref DBPassword
+      DatabaseName: yobitel
+      MasterUsername: user
+      MasterUserPassword: password
       EnableHttpEndpoint: 'true'
       DBSubnetGroupName: !Ref DBSubnetGroup
       VpcSecurityGroupIds:
@@ -56,7 +44,7 @@ Resources:
      Properties:
       DBSubnetGroupDescription: Subnets available for the Aurora database cluster
       SubnetIds:
-        - !Ref PrivateSubnet
+        - !Ref PublicSubnet1
         - !Ref PublicSubnet
         
 
@@ -73,6 +61,6 @@ Resources:
 
  
 Outputs:
-   DBEndpoint:
+   DatabaseEndpoint:
     Description: The connection endpoint of your database.
     Value: !GetAtt DBCluster.Endpoint.Address
