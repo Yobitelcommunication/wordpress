@@ -1,4 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  InstanceId:
+    Type: String
+    Description: 'InstanceId of the EC2 instance'
+
+  DatabaseEndpoint:
+    Type: String
+    Description: 'Endpoint of the database'
+
+  PrivateIPs:
+    Type: String
+    Description: 'Private IPs of the EC2 instance'
+
 Resources:
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
@@ -20,39 +34,52 @@ Resources:
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: MyEC2DockerRunFunction
+      FunctionName: wordpressautomation
       Runtime: 'python3.8'
-      Handler: index.add_server_block
+      Handler: index.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          InstanceId: !Ref InstanceId
+          DatabaseEndpoint: !Ref DatabaseEndpoint
+    
       Timeout: 60
       Code:
         ZipFile: |
+          import os
           import boto3
-          def add_server_block(event, context):
-          # Extract the server name and proxy pass from the event or environment variables
-              server_name = event['server_name']
-              proxy_pass_url = event['proxy_pass_url']
 
-          # Create the new server block with the provided server name and proxy pass
+          def lambda_handler(event, context):
+              
+              instance_id = os.environ['InstanceId']
+              database_endpoint = os.environ['DatabaseEndpoint']
+              private_ip = event['private_ip']
+              container_name = event['container_name']
+              server_name = event['server_name'] 
+              nginx_conf_path = '/etc/nginx/nginx.conf'  
+              line_number_to_insert = 55  
               new_server_block = f'''
                   server {{
                       listen 80;
                       server_name {server_name};
                       location / {{
-                          proxy_pass {proxy_pass_url};
+                          proxy_pass http://{private_ip}:8080;
                           proxy_set_header Host $host;
                           proxy_set_header X-Real-IP $remote_addr;
-                      }}
+                      }} 
                   }}
               '''
 
               client = boto3.client('ssm')
-              instance_id = 'i-0a3ebf62f318a6bd5'  # Replace with the EC2 instance ID you want to modify
-              nginx_conf_path = '/etc/nginx/nginx.conf'  # Path to the Nginx configuration file
-              line_number_to_insert = 55
-    
-
-              # Connect to the EC2 instance and add the new server block to the Nginx configuration file
+              response = client.send_command(
+                  InstanceIds=[instance_id],
+                  DocumentName='AWS-RunShellScript',
+                  Parameters={
+                      'commands': [
+                          f"sudo docker container run -e 'WORDPRESS_DB_HOST={database_endpoint}' -e 'WORDPRESS_DB_USER=user' -e 'WORDPRESS_DB_PASSWORD=password' -e 'WORDPRESS_DB_NAME=yobitel' -e 'WORDPRESS_TABLE_PREFIX=yobitel_{container_name}' --name {container_name} -d -p {private_ip}:8080:80 2b5691e73f15"
+                      ]
+                  }
+              )
               response = client.send_command(
                   InstanceIds=[instance_id],
                   DocumentName='AWS-RunShellScript',
@@ -68,4 +95,18 @@ Resources:
                       ]
                   }
               )
-              print(response)
+              response = client.send_command(
+                  InstanceIds=[instance_id],
+                  DocumentName='AWS-RunShellScript',
+                  Parameters={
+                      'commands': [
+                          f"sudo systemctl restart nginx"
+                      ]
+                  }
+              )
+    
+              return {
+                  'statusCode': 200,
+              }
+    
+    
