@@ -24,7 +24,34 @@ Mappings:
         ami: ami-059310caab7e9f4ef
       us-east-2:
         ami: ami-0004cf65cdd4848f3
-
+      us-west-1:
+        ami: ami-041a430749b21c474 
+      us-west-2:
+        ami: ami-0307e792ccd82406a
+      ap-south-1:
+        ami: ami-0f72df1efe43a2da3
+      ap-northeast-3:
+        ami: ami-00bfe47f26046d071
+      ap-northeast-2:
+        ami: ami-0f1d085296a19e5ed
+      ap-southeast-1:
+        ami: ami-0347e32531c8d68cb
+      ap-southeast-2:
+        ami: ami-06e16ed5fccabb3d1
+      ap-northeast-1:
+        ami: ami-09a608f9c57306632
+      ca-central-1:
+        ami: ami-0740a17e1cae524d7
+      eu-central-1:
+        ami: ami-0d239529f028a749b
+      eu-west-1:
+        ami: ami-0acaaf350b3a556c9
+      eu-west-2:
+        ami: ami-05c1db5fc9428921b
+      eu-west-3:
+        ami: ami-015622dc0e9254a1a
+      eu-north-1:
+        ami: ami-0d85ddf96a14d93d6
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -215,6 +242,10 @@ Outputs:
     Description: InstanceId of the newly created EC2 instance
     Value: !Ref EC2Instance
   
+  PublicIp:
+    Description: PublicIp of the newly created EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
+    
   PublicSubnet:
     Description: PublicSubnet of the newly created EC2 instance
     Value: !Ref PublicSubnet
@@ -227,6 +258,11 @@ Outputs:
     Description: VPC of the newly created EC2 instance
     Value: !Ref VPC
 
-  PrivateIPs:
+  PrimaryIp:
     Description: Private IP address of network interface 0
-    Value: !Join [",", [!Select [0, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth0.SecondaryPrivateIpAddresses], !GetAtt Eth1.PrimaryPrivateIpAddress, !Select [0, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth1.SecondaryPrivateIpAddresses]]]
+    Value: !GetAtt Eth0.PrimaryPrivateIpAddress
+
+
+  PrivateIps:
+    Description: Private IP address of network interface 0
+    Value: !Join [",", [!Select [0, !GetAtt Eth0.SecondaryPrivateIpAddresses], !GetAtt Eth1.PrimaryPrivateIpAddress, !Select [0, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth0.SecondaryPrivateIpAddresses], !Select [1, !GetAtt Eth1.SecondaryPrivateIpAddresses], !Select [2, !GetAtt Eth1.SecondaryPrivateIpAddresses]]]
