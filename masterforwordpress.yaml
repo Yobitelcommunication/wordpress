@@ -4,19 +4,30 @@ Description: 'wordpress'
 Parameters:
   VPCCidr:
     Type: String
+    Description: VPC range
     Default: 172.100.0.0/16
 
   PublicSubnetCidr:
     Type: String
+    Description: Subnet 1 range
     Default: 172.100.11.0/24
 
   PublicSubnetCidr1:
     Type: String
+    Description: Subnet 2 range
     Default: 172.100.12.0/24
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+
+  DomainName:
+    Type: String
+    Description: Name of the server
+    
+  Containername:
+    Type: String
+    Description: Name of the container
 
 Resources:
   Instance:
@@ -47,4 +58,7 @@ Resources:
       Parameters:
            InstanceId: !GetAtt Instance.Outputs.InstanceId
            DatabaseEndpoint: !GetAtt Database.Outputs.DatabaseEndpoint
-           PrivateIPs: !GetAtt Instance.Outputs.PrivateIPs
+           PrivateIps: !GetAtt Instance.Outputs.PrivateIps
+           PrimaryIp: !GetAtt Instance.Outputs.PrimaryIp
+           Containername: !Ref Containername
+           DomainName: !Ref DomainName
