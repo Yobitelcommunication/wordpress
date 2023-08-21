@@ -4,15 +4,15 @@ Description: 'VPC with public and private subnets'
 Parameters:
   VPCCidr:
     Type: String
-    Default: 172.100.0.0/16
+    Default: 192.168.0.0/16
 
   PublicSubnetCidr:
     Type: String
-    Default: 172.100.11.0/24
+    Default: 192.168.1.0/24
 
   PublicSubnetCidr1:
     Type: String
-    Default: 172.100.12.0/24
+    Default: 192.168.2.0/24
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
@@ -215,6 +215,8 @@ Resources:
          sudo yum install docker -y
          sudo systemctl start docker
          sudo docker pull wordpress:latest
+         sudo amazon-linux-extras install epel -y
+         sudo yum install python-certbot-nginx -y -y
          sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
          sudo systemctl enable amazon-ssm-agent
          sudo systemctl start amazon-ssm-agent
