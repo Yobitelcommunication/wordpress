@@ -24,7 +24,7 @@ Parameters:
   Containername:
     Type: String
     Description: Name of the container
-
+    
 Resources:
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
