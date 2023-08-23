@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'wordpress'
+
+Parameters:
+  VPCCidr:
+    Type: String
+    Description: VPC range
+    Default: 192.168.0.0/16
+
+  PublicSubnetCidr:
+    Type: String
+    Description: Subnet 1 range
+    Default: 192.168.1.0/24
+
+  PublicSubnetCidr1:
+    Type: String
+    Description: Subnet 2 range
+    Default: 192.168.2.0/24
+    
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Default: Mumbai
+
+  DomainName:
+    Type: String
+    Description: Name of the server
+    
+  Containername:
+    Type: String
+    Description: Name of the container
+
+Resources:
+  Instance:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://wordpressautomation.s3.amazonaws.com/wordpressinstance.yaml
+      Parameters:
+        VPCCidr: !Ref VPCCidr
+        PublicSubnetCidr: !Ref PublicSubnetCidr
+        PublicSubnetCidr1: !Ref PublicSubnetCidr1
+        KeyName: !Ref KeyName
+    
+  Database:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Instance
+    Properties:
+      TemplateURL: https://wordpressautomation.s3.amazonaws.com/database.yaml
+      Parameters:
+        VPC: !GetAtt Instance.Outputs.VPC
+        PublicSubnet: !GetAtt Instance.Outputs.PublicSubnet
+        PublicSubnet1: !GetAtt Instance.Outputs.PublicSubnet1
+
+  Lambda:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Database
+    Properties:
+      TemplateURL: https://wordpressautomation.s3.amazonaws.com/lambdanginx.yaml
+      Parameters:
+           InstanceId: !GetAtt Instance.Outputs.InstanceId
+           DatabaseEndpoint: !GetAtt Database.Outputs.DatabaseEndpoint
+           PrivateIps: !GetAtt Instance.Outputs.PrivateIps
+           PrimaryIp: !GetAtt Instance.Outputs.PrimaryIp
+           Containername: !Ref Containername
+           DomainName: !Ref DomainName
