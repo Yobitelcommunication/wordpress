@@ -3,16 +3,13 @@ Description: 'VPC with public and private subnets'
 
 Parameters:
   VPCCidr:
-    Type: String
-    Default: 192.168.0.0/16
+    Type: String  
 
   PublicSubnetCidr:
     Type: String
-    Default: 192.168.1.0/24
 
   PublicSubnetCidr1:
     Type: String
-    Default: 192.168.2.0/24
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
@@ -52,6 +49,7 @@ Mappings:
         ami: ami-015622dc0e9254a1a
       eu-north-1:
         ami: ami-0d85ddf96a14d93d6
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -112,52 +110,6 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet1
-  
-  InstanceRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ['ec2.amazonaws.com']
-            Action: 'sts:AssumeRole'
-      Path: '/'
-      Policies:
-        - PolicyName: SSMManagedInstancePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'ssm:UpdateInstanceInformation'
-                  - 'ssmmessages:CreateControlChannel'
-                  - 'ssmmessages:CreateDataChannel'
-                  - 'ssmmessages:OpenControlChannel'
-                  - 'ssmmessages:OpenDataChannel'
-                Resource: '*'
-        - PolicyName: EC2SSMSendCommandPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: 'ssm:SendCommand'
-                Resource: '*'  
-        - PolicyName: AdministratorAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: '*'
-                Resource: '*'
-
-  InstanceProfile:
-    Type: 'AWS::IAM::InstanceProfile'
-    Properties:
-      Path: '/'
-      Roles:
-        - !Ref InstanceRole
 
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -193,13 +145,20 @@ Resources:
       AllocationId: !GetAtt ElasticIP.AllocationId
       NetworkInterfaceId: !Ref Eth0
 
+  IaminstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - ec2elasticbeanstalk
+
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', ami]
       InstanceType: t4g.small
       KeyName: !Ref KeyName
-      IamInstanceProfile: !Ref InstanceProfile
+      IamInstanceProfile: !Ref IaminstanceProfile
       NetworkInterfaces:
       - NetworkInterfaceId: !Ref 'Eth0'
         DeviceIndex: '0'
