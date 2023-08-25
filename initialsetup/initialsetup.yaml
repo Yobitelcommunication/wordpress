@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Api Gateway with Lambda
+Resources:
+  MainLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: A Function to create a CFN Stack and trigger a Lambda Function which is created by CFN Stack
+      Handler: index.lambda_handler
+      Role: arn:aws:iam::059449770494:role/lambdaforwps
+      Runtime: 'python3.8'
+      Timeout: 900
+      Code:
+        ZipFile: |
+          import os
+          import boto3
+          import time
+          stack_name = 'wordpress-hosting'
+          def stack_exists(event, cloudformation, stack_name):
+              region = event['region']
+              try:
+                  cloudformation = boto3.client('cloudformation', region_name=region)
+                  response = cloudformation.describe_stacks(StackName=stack_name) 
+                  return True
+              except cloudformation.exceptions.ClientError as e:
+                  if 'Stack with id {0} does not exist'.format(stack_name) in str(e):
+                      return False
+                  else:
+                      raise
+        
+          def lambda_handler(event, context):
+              region = event['region']
+              domainName = event['domainName']
+              containername = event['containername']
+   
+              stack_parameters = [
+                  {
+                  'ParameterKey': 'DomainName',
+                  'ParameterValue': domainName
+                  },
+                  {
+                  'ParameterKey': 'Containername',
+                  'ParameterValue': containername
+                  }
+              ]
+   
+              cloudformation = boto3.client('cloudformation', region_name=region)
+    
+              template_url =f"https://wordpressautomation.s3.amazonaws.com/masters/{region}.yaml"
+
+   
+              if not stack_exists(event, cloudformation, stack_name):
+     
+                  response = cloudformation.create_stack(
+                      StackName=stack_name,
+                      TemplateURL=template_url,
+                      Parameters=stack_parameters,
+                      Capabilities=['CAPABILITY_NAMED_IAM']
+                  )
+                  print("Stack creation initiated",response)
+        
+                  waiter = cloudformation.get_waiter('stack_create_complete')
+                  waiter.wait(StackName=stack_name)
+                  print("Stack creation completed")
+              else: 
+                  response = cloudformation.update_stack(
+                      StackName=stack_name,
+                      TemplateURL=template_url,
+                      Parameters=stack_parameters,
+                      Capabilities=['CAPABILITY_NAMED_IAM']
+                  )
+                  print("Stack update initiated",response)
+        
+                  waiter = cloudformation.get_waiter('stack_update_complete')
+                  waiter.wait(StackName=stack_name)
+                  print("Stack update completed")
+    
+              lambda_function = 'wordpressautomation'    
+              lambda_client = boto3.client('lambda', region_name=region)
+              response = lambda_client.invoke(FunctionName=lambda_function)
+              print("Lambda function invoked",response)
+    
+  WordpressApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: API used for passing parameters to Lambda function
+      FailOnWarnings: true
+      Name: !Ref AWS::StackName
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:invokeFunction
+      FunctionName: !GetAtt MainLambda.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WordpressApi}/*/*/*'
+
+  WordpressResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WordpressApi
+      ParentId: !GetAtt WordpressApi.RootResourceId
+      PathPart: test
+  
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - WordpressPostMethod
+    Properties:
+      RestApiId: !Ref WordpressApi
+      StageName: test
+
+  WordpressPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MainLambda.Arn}/invocations'
+        IntegrationResponses:
+          - StatusCode: 200
+        RequestTemplates:
+          application/json: |
+            {
+             "domainName" : "$input.params('param2')",
+             "containername" : "$input.params('param1')",
+             "region" : "$input.params('param3')"
+            }
+      RequestParameters:
+        method.request.querystring.name: false
+      ResourceId: !Ref WordpressResource
+      RestApiId: !Ref WordpressApi
+      MethodResponses:
+        - StatusCode: 200
+
+Outputs:
+  RootUrl:
+    Description: Root URL of the API gateway
+    Value: !Sub 'https://${WordpressApi}.execute-api.${AWS::Region}.amazonaws.com'
