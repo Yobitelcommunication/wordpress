@@ -115,7 +115,7 @@ Resources:
                   '''
           
                   client = boto3.client('ssm')
-                  docker_command = f"docker container run -e 'WORDPRESS_DB_HOST={database_endpoint}' -e 'WORDPRESS_DB_USER=user' -e 'WORDPRESS_DB_PASSWORD=password' -e 'WORDPRESS_DB_NAME=yobitel' -e 'WORDPRESS_TABLE_PREFIX=yobitel_{container_name}' --name {container_name} -d -p {private_ip}:8080:80 -v /opt/{container_name}:/var/www/html wordpress:latest"
+                  docker_command = f"docker container run -e 'WORDPRESS_DB_HOST={database_endpoint}' -e 'WORDPRESS_DB_USER=user' -e 'WORDPRESS_DB_PASSWORD=password' -e 'WORDPRESS_DB_NAME=yobitel' -e 'WORDPRESS_TABLE_PREFIX=yobitel_{container_name}' --name {container_name} -d -p {private_ip}:8080:80 -v /opt/{container_name}:/var/www/html wordpress:6.1.1"
                   response = client.send_command(
                       InstanceIds=[instance_id],
                       DocumentName='AWS-RunShellScript',
