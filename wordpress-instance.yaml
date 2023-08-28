@@ -173,7 +173,7 @@ Resources:
          sudo systemctl start nginx
          sudo yum install docker -y
          sudo systemctl start docker
-         sudo docker pull wordpress:latest
+         sudo docker pull wordpress:6.1.1
          sudo amazon-linux-extras install epel -y
          sudo yum install python-certbot-nginx -y -y
          sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
