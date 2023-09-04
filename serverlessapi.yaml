@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create an API Gateway for triggering Lambda based on domain
+
+Resources:
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: startapi
+  
+  AwslambdaPermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: arn:aws:lambda:us-east-1:059449770494:function:test
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/*
+      
+  ApiGatewayDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: evolvehorizon.online
+      CertificateArn: arn:aws:acm:us-east-1:059449770494:certificate/83f7d6ce-a594-4099-b3dc-24ae2e846f5d
+
+  ApiGatewayBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName:
+        Fn::Sub: ${ApiGatewayDomainName}
+      RestApiId: !Ref ApiGateway
+
+  ApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: ApiGateway
+      ParentId:
+        Fn::GetAtt:
+          - ApiGateway
+          - RootResourceId
+      PathPart: '{proxy+}'
+
+  ApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !Ref ApiGatewayResource
+      RestApiId:
+        Ref: ApiGateway
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:059449770494:function:test/invocations
+          
+
+Outputs:
+  ApiGatewayId:
+    Description: API Gateway ID
+    Value:
+      Ref: ApiGateway
+  ApiGatewayInvokeUrl:
+    Description: API Gateway Invoke URL
+    Value:
+      Fn::Sub: https://${ApiGatewayDomainName}
